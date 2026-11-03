@@ -1,0 +1,35 @@
+VALMAURA - VERSIONE LOCALE PER GITHUB PAGES
+
+Questa versione non usa Netlify, Netlify Functions, Netlify Blobs, Firebase o API cloud.
+GitHub Pages pubblica soltanto i file dell'applicazione. Dati, stati, note e fotografie
+sono conservati localmente nel browser del telefono (localStorage + IndexedDB).
+
+UTILIZZO PREVISTO
+1. Pubblicare su GitHub Pages il contenuto di questa cartella, mantenendo index.html
+   nella cartella principale del repository (non caricare lo ZIP come unico file).
+2. Aprire l'indirizzo GitHub Pages dal telefono e, se desiderato, installare l'app.
+3. Usare il telefono per modificare le schede e scattare/caricare fotografie.
+4. Periodicamente premere "ZIP completo (dati + foto)".
+5. Dal menu di condivisione Android scegliere OneDrive e salvare il backup.
+6. Usare il PC per conservare e consultare gli archivi ZIP: non c'è sincronizzazione
+   automatica tra telefono e PC.
+
+BACKUP E RIPRISTINO
+- Lo ZIP completo contiene tutti gli alloggi, stati, note, dati di collaudo e tutte
+  le fotografie/schede presenti nella memoria locale del telefono al momento
+  dell'esportazione. Non rispetta i filtri visualizzati.
+- Per ripristinare un backup creato da questa versione, aprire l'app sul telefono,
+  scegliere "Ripristina ZIP" e selezionare il file ZIP.
+- Il ripristino sostituisce i dati e le fotografie attualmente presenti sul telefono.
+
+ATTENZIONE ALLA CONSERVAZIONE
+I dati sono salvati nel browser del telefono e non vengono inviati automaticamente
+ad alcun server. Non cancellare i dati del sito/Chrome e non disinstallare il browser
+prima di aver creato e verificato un backup ZIP su OneDrive.
+Ripetere l'esportazione dopo nuove modifiche o nuove fotografie.
+
+REQUISITI
+- Per la prima apertura e per scaricare le librerie esterne è necessaria una connessione
+  Internet. Il service worker mette in cache i file dell'app e le librerie per l'uso
+  successivo offline, dopo una prima apertura riuscita.
+- La fotocamera richiede HTTPS: GitHub Pages fornisce HTTPS.

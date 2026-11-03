@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAL Serramenti - Via Valmaura 45-79 (Light Modern Executive)</title>
+    <!-- PWA: installabile e utilizzabile offline -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Valmaura">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        lightBg: '#f8fafc',
+                        lightCard: '#ffffff',
+                        lightBorder: '#e2e8f0',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- SheetJS per Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-lightBg text-slate-800 font-sans antialiased min-h-screen" x-data="valmauraApp()">
+
+    <!-- Header Istituzionale Light Moderno -->
+    <header class="bg-lightCard border-b border-lightBorder sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <!-- Logo e Intestazione -->
+            <div class="flex items-center space-x-4">
+                <img src="logo-ater.jpg" alt="ATER Trieste" width="250" height="105" class="h-14 w-auto shrink-0">
+                <div class="border-l border-lightBorder pl-4">
+                    <h1 class="sr-only">ATER TRIESTE</h1>
+                    <p class="text-[11px] font-semibold text-slate-500 tracking-wider leading-snug"><span class="block">U.O. PRONTO INTERVENTO E MANUTENZIONE ORDINARIA</span><span class="block">AREA MANUTENTIVA</span></p>
+                </div>
+            </div>
+            <!-- Badge Zona Interessata Moderno -->
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-2xl border border-blue-200 shadow-sm flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                    <div class="text-xs">
+                        <span class="font-bold block">Zona Interessata</span>
+                        <span class="font-semibold text-blue-900">Via Valmaura (Civici 45 - 79)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenitore Principale -->
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- KPI / Dashboard Rapida -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Totale -->
+            <div @click="filtroStato = ''" class="bg-lightCard p-5 rounded-2xl shadow-sm border border-lightBorder cursor-pointer hover:border-blue-400 transition-all group">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-tight group-hover:text-blue-600 transition-colors">Alloggi Totali</span>
+                <div class="text-3xl font-black mt-2 text-slate-900" x-text="alloggi.length"></div>
+                <div class="text-[10px] text-slate-400 mt-1">Dataset completo</div>
+            </div>
+            <!-- In Produzione -->
+            <div @click="filtroStato = 'In produzione'" class="bg-lightCard p-5 rounded-2xl shadow-sm border border-lightBorder border-l-4 border-l-purple-500 cursor-pointer hover:border-purple-300 transition-all group">
+                <span class="text-xs font-semibold text-purple-600 uppercase tracking-tight">In Produzione</span>
+                <div class="text-3xl font-black mt-2 text-purple-900" x-text="statisticheStati['In produzione'] || 0"></div>
+                <div class="text-[10px] text-slate-400 mt-1">In lavorazione ditta</div>
+            </div>
+            <!-- Posa in corso -->
+            <div @click="filtroStato = 'Posa in corso'" class="bg-lightCard p-5 rounded-2xl shadow-sm border border-lightBorder border-l-4 border-l-blue-500 cursor-pointer hover:border-blue-300 transition-all group">
+                <span class="text-xs font-semibold text-blue-600 uppercase tracking-tight">Posa in Corso</span>
+                <div class="text-3xl font-black mt-2 text-blue-900" x-text="statisticheStati['Posa in corso'] || 0"></div>
+                <div class="text-[10px] text-slate-400 mt-1">Intervento cantiere</div>
+            </div>
+            <!-- Completati -->
+            <div @click="filtroStato = 'Completato'" class="bg-lightCard p-5 rounded-2xl shadow-sm border border-lightBorder border-l-4 border-l-emerald-500 cursor-pointer hover:border-emerald-300 transition-all group">
+                <span class="text-xs font-semibold text-emerald-600 uppercase tracking-tight">Completati</span>
+                <div class="text-3xl font-black mt-2 text-emerald-900" x-text="statisticheStati['Completato'] || 0"></div>
+                <div class="text-[10px] text-slate-400 mt-1">Collaudati & Pronti</div>
+            </div>
+        </div>
+
+        <!-- Barra di Avanzamento Globale -->
+        <div class="bg-lightCard p-5 rounded-2xl shadow-sm border border-lightBorder">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-sm font-bold text-slate-700">Avanzamento Complessivo (Completati / Totale filtrato)</span>
+                <span class="text-sm font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200" x-text="percentualeCompletamento + '%' "></span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200">
+                <div class="bg-gradient-to-r from-blue-600 to-emerald-500 h-full transition-all duration-700 rounded-full shadow-sm" :style="`width: ${percentualeCompletamento}%`"></div>
+            </div>
+        </div>
+
+        <!-- Barra degli Strumenti (Filtri Dinamici a cascata e Ricerca) -->
+        <div class="bg-lightCard p-4 rounded-2xl shadow-sm border border-lightBorder grid grid-cols-1 lg:grid-cols-[1fr_18rem] gap-3 items-center">
+            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2.5 w-full">
+                <!-- Filtro Ditta -->
+                <select x-model="filtroDitta" @change="filtroCivico = ''" class="w-full h-10 px-3.5 border border-lightBorder rounded-xl text-xs bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                    <option value="">Tutte le Ditte</option>
+                    <template x-for="d in ditteDisponibili" :key="d">
+                        <option :value="d" x-text="d"></option>
+                    </template>
+                </select>
+
+                <!-- Filtro Civico Dinamico (Mostra solo i civici della ditta selezionata) -->
+                <select x-model="filtroCivico" class="w-full h-10 px-3.5 border border-lightBorder rounded-xl text-xs bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                    <option value="">Tutti i Civici</option>
+                    <template x-for="c in civiciFiltratiPerDitta" :key="c">
+                        <option :value="c" x-text="'Civico ' + c"></option>
+                    </template>
+                </select>
+
+                <!-- Filtro Fase -->
+                <select x-model="filtroFase" aria-label="Fase intervento" class="w-full h-10 px-3.5 border border-lightBorder rounded-xl text-xs bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                    <option value="">Tutte le Fasi</option>
+                    <option value="Fase 1">Fase 1</option>
+                    <option value="Fase 2">Fase 2</option>
+                </select>
+
+                <!-- Filtro Stato -->
+                <select x-model="filtroStato" class="w-full h-10 px-3.5 border border-lightBorder rounded-xl text-xs bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                    <option value="">Tutti gli Stati</option>
+                    <template x-for="s in statiLavorazione" :key="s">
+                        <option :value="s" x-text="s"></option>
+                    </template>
+                </select>
+
+                <!-- Filtro Esito / Riserve -->
+                <select x-model="filtroEsito" class="w-full h-10 px-3.5 border border-lightBorder rounded-xl text-xs bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-sm">
+                    <option value="">Tutti gli Esiti (Collaudo)</option>
+                    <option value="Da eseguire">Da eseguire</option>
+                    <option value="Approvato">Approvato (Conforme)</option>
+                    <option value="Con riserve">Con riserve</option>
+                </select>
+            </div>
+
+            <!-- Ricerca Testuale -->
+            <div class="w-full">
+                <input type="text" x-model="ricercaTesto" placeholder="🔍 Cerca interno, nominativo, telefono..." class="w-full h-10 px-4 border border-lightBorder rounded-xl text-xs bg-white text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-slate-400 shadow-sm">
+            </div>
+        </div>
+
+        <!-- Tabella Principale degli Alloggi con Ordinamento sui Titoli -->
+        <div class="bg-lightCard rounded-2xl shadow-sm border border-lightBorder overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-l-8 border-lightBorder border-l-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                            <th @click="ordina('civico')" class="p-4 w-[13%] cursor-pointer hover:bg-slate-100 transition-colors">
+                                Indirizzo ↕
+                            </th>
+                            <th @click="ordina('interno')" class="p-4 w-[7%] cursor-pointer hover:bg-slate-100 transition-colors">
+                                Int. ↕
+                            </th>
+                            <th @click="ordina('nominativo')" class="p-4 w-[18%] cursor-pointer hover:bg-slate-100 transition-colors">
+                                Inquilino / Contatti ↕
+                            </th>
+                            <th @click="ordina('impresa')" class="p-4 cursor-pointer hover:bg-slate-100 transition-colors">
+                                Ditta Incaricata ↕
+                            </th>
+                            <th @click="ordina('stato')" class="p-4 cursor-pointer hover:bg-slate-100 transition-colors">
+                                Stato Lavori ↕
+                            </th>
+                            <th class="p-4 w-[20%]">Note Cantiere</th>
+                            <th class="p-4 text-center">Gestione Alloggio</th>
+                            <th @click="ordina('esito')" class="p-4 text-center cursor-pointer hover:bg-slate-100 transition-colors">
+                                Esito Collaudo ↕
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-lightBorder text-xs">
+                        <template x-for="alloggio in alloggiFiltrati" :key="alloggio.id">
+                            <tr class="transition-colors border-l-8" :class="classeRiga(alloggio)">
+                                <td class="p-4 font-medium text-slate-900 whitespace-nowrap" x-text="'Via Valmaura ' + alloggio.civico"></td>
+                                <td class="p-4 font-bold text-blue-600 whitespace-nowrap" x-text="'Int. ' + alloggio.interno"></td>
+                                <td class="p-4">
+                                    <div class="font-bold text-slate-900" x-text="alloggio.nominativo"></div>
+                                    <div class="text-[11px] text-slate-500" x-text="alloggio.telefono || 'Nessun telefono'"></div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 text-[11px] font-bold rounded-lg bg-blue-50 text-blue-700 border border-blue-200" x-text="alloggio.impresa"></span>
+                                </td>
+                                <td class="p-4">
+                                    <select x-model="alloggio.stato" @change="salvaDati()" class="px-3 py-1.5 text-xs font-bold rounded-xl border bg-white shadow-sm"
+                                        :class="{
+                                            'text-purple-700 border-purple-200 bg-purple-50': alloggio.stato === 'In produzione',
+                                            'text-blue-700 border-blue-200 bg-blue-50': alloggio.stato === 'Posa in corso',
+                                            'text-emerald-700 border-emerald-200 bg-emerald-50': alloggio.stato === 'Completato'
+                                        }">
+                                        <template x-for="s in statiLavorazione" :key="s">
+                                            <option :value="s" x-text="s"></option>
+                                        </template>
+                                    </select>
+                                </td>
+                                <td class="p-4">
+                                    <input type="text" x-model="alloggio.note" @blur="salvaDati()" placeholder="Nota..." class="w-full text-xs px-3 py-1.5 bg-white border border-lightBorder rounded-xl text-slate-700 focus:border-blue-500 focus:outline-none shadow-sm">
+                                </td>
+                                <td class="p-4 text-center whitespace-nowrap">
+                                    <button @click="apriGestione(alloggio)" class="text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-1.5 mx-auto">
+                                        📁 Scheda & Allegati
+                                    </button>
+                                </td>
+                                <!-- Esito collaudo: rispecchia il valore salvato nella scheda alloggio -->
+                                <td class="p-4 text-center whitespace-nowrap">
+                                    <span class="inline-block px-3 py-1 text-[11px] font-bold rounded-lg border"
+                                        :class="{
+                                            'bg-slate-100 text-slate-600 border-slate-300': esitoCollaudo(alloggio) === 'Da eseguire',
+                                            'bg-teal-50 text-teal-700 border-teal-300': esitoCollaudo(alloggio) === 'Approvato',
+                                            'bg-rose-50 text-rose-700 border-rose-300': esitoCollaudo(alloggio) === 'Con riserve'
+                                        }"
+                                        x-text="etichettaEsito(esitoCollaudo(alloggio))"></span>
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-if="alloggiFiltrati.length === 0">
+                            <tr>
+                                <td colspan="8" class="p-10 text-center text-slate-400">Nessun alloggio trovato con i filtri o la ricerca inseriti.</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sezione Legenda Colori Tabella -->
+        <div class="bg-lightCard p-4 rounded-2xl shadow-sm border border-lightBorder flex flex-wrap items-center gap-6 text-xs text-slate-600">
+            <span class="font-bold text-slate-800">Legenda Colori Riga:</span>
+            <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-violet-200 border-violet-600 border-2"></span>
+                <span>In produzione</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-sky-200 border-sky-600 border-2"></span>
+                <span>Posa in corso</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-emerald-200 border-emerald-600 border-2"></span>
+                <span>Completato · collaudo da eseguire</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-teal-200 border-teal-600 border-2"></span>
+                <span>Collaudo approvato · Word/foto mancanti</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-indigo-200 border-indigo-600 border-2"></span>
+                <span>Collaudato (Word + Foto caricate)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-rose-200 border-rose-600 border-2"></span>
+                <span>Collaudo con riserve / Da rilavorare</span>
+            </div>
+        </div>
+
+        <!-- Sezione Backup e Gestione File -->
+        <div class="bg-lightCard p-5 rounded-2xl shadow-sm border border-lightBorder flex flex-wrap justify-between items-center gap-4">
+            <div class="text-xs text-slate-500">
+                💾 Salvataggio automatico su questo telefono. Esporta periodicamente uno ZIP completo con dati, fotografie e schede e conservalo su OneDrive. Il PC serve per consultare e conservare gli archivi.
+            </div>
+            <div class="flex flex-wrap gap-2.5">
+                <button @click="esportaExcel" class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-sm transition-all">
+                    Scarica elenco Excel
+                </button>
+                <label class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all flex items-center gap-2">
+                    Sostituisci elenco da Excel
+                    <input type="file" @change="importaExcel" class="hidden" accept=".xlsx, .xls, .csv" :disabled="excelOccupato">
+                </label>
+                <button @click="esportaJson" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl shadow-sm transition-all border border-slate-200">
+                    Esporta Backup JSON
+                </button>
+                <label class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all border border-slate-200">
+                    Importa Backup
+                    <input type="file" @change="importaJson" class="hidden" accept=".json">
+                </label>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modale Scheda Completa Alloggio, File Word e Foto -->
+    <div x-show="modaleGestioneAperto" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" style="display: none;">
+        <div class="bg-lightCard border border-lightBorder rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            
+            <!-- Intestazione Modale -->
+            <div class="flex justify-between items-start border-b border-lightBorder pb-4">
+                <div>
+                    <h3 class="text-lg font-black text-slate-900" x-text="`Scheda Alloggio - Via Valmaura ${alloggioCorrente.civico} Int. ${alloggioCorrente.interno}`"></h3>
+                    <p class="text-xs text-slate-500 mt-0.5" x-text="`Impresa: ${alloggioCorrente.impresa} | Inquilino: ${alloggioCorrente.nominativo} (Tel: ${alloggioCorrente.telefono || 'N.D.'})`"></p>
+                </div>
+                <button @click="chiudiGestione()" class="text-slate-400 hover:text-slate-700 text-2xl font-black">&times;</button>
+            </div>
+
+            <!-- Dati Sintetici -->
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-lightBorder text-xs">
+                <div>
+                    <span class="text-slate-500 block text-[11px]">Fase Intervento:</span>
+                    <strong class="text-slate-800 text-sm mt-0.5 block" x-text="alloggioCorrente.fase"></strong>
+                </div>
+                <div>
+                    <span class="text-slate-500 block text-[11px]">Email Inquilino:</span>
+                    <strong class="text-slate-800 text-sm mt-0.5 block truncate" x-text="alloggioCorrente.email || 'Nessuna email'"></strong>
+                </div>
+            </div>
+
+            <!-- Sezione Caricamento File Word (Verbale) -->
+            <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-3xl">📄</span>
+                        <div>
+                            <h4 class="text-xs font-black text-blue-900 uppercase tracking-wider">Verbale / Scheda Sopralluogo (Word)</h4>
+                            <p class="text-xs text-blue-700 mt-0.5" x-text="alloggioCorrente.collaudo.fileWord ? 'File caricato: ' + alloggioCorrente.collaudo.fileWord : 'Nessun file Word caricato'"></p>
+                        </div>
+                    </div>
+                    <label class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all">
+                        Carica Word (.docx)
+                        <input type="file" @change="caricaFileWord" class="hidden" accept=".doc,.docx">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Sezione Foto: fotocamera + archivio locale IndexedDB -->
+            <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3">
+                <div class="flex items-center space-x-3">
+                    <span class="text-3xl">📷</span>
+                    <div>
+                        <h4 class="text-xs font-black text-amber-900 uppercase tracking-wider">Foto di Posa / Cantiere</h4>
+                        <p class="text-xs text-amber-700 mt-0.5" x-text="fotoAlloggio.length + ' foto salvate su questo telefono'"></p>
+                        <p class="text-[11px] mt-0.5 font-semibold text-emerald-700">✓ Foto conservate nella memoria di questo telefono. Esporta regolarmente lo ZIP su OneDrive.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- capture="environment" apre direttamente la fotocamera posteriore -->
+                    <label class="px-3.5 py-3 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all text-center">
+                        📸 Scatta foto
+                        <input type="file" id="inputFotoCamera" @change="aggiungiFoto($event)" class="hidden" accept="image/*" capture="environment">
+                    </label>
+                    <label class="px-3.5 py-3 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold rounded-xl cursor-pointer shadow-sm transition-all text-center">
+                        🖼️ Dalla galleria
+                        <input type="file" @change="aggiungiFoto($event)" class="hidden" accept="image/*" multiple>
+                    </label>
+                </div>
+                <p x-show="fotoInElaborazione > 0" class="text-xs text-amber-800 font-semibold" x-text="'Ottimizzazione di ' + fotoInElaborazione + ' foto in corso...'"></p>
+                <p x-show="fotoErrore" class="text-xs text-red-600 font-semibold" x-text="fotoErrore"></p>
+                <!-- Anteprime -->
+                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1" x-show="fotoAlloggio.length > 0">
+                    <template x-for="f in fotoAlloggio" :key="f.id">
+                        <div class="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+                            <img :src="f.url" class="w-full h-full object-cover" @click="fotoAperta = f" alt="Foto alloggio">
+                            <button @click.stop="eliminaFoto(f)" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/90 text-white text-sm font-black leading-none" aria-label="Elimina foto">&times;</button>
+                            <span class="absolute bottom-0 inset-x-0 bg-slate-900/60 text-white text-[9px] text-center py-0.5" x-text="'📱 ' + Math.round(f.size / 1024) + ' KB'"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Dettagli Collaudo & Esito -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Data Sopralluogo Congiunto</label>
+                    <input type="date" x-model="alloggioCorrente.collaudo.data" class="w-full px-3.5 py-2.5 bg-white border border-lightBorder rounded-xl text-xs text-slate-700 focus:border-blue-500 focus:outline-none shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Esito Collaudo Finale</label>
+                    <select x-model="alloggioCorrente.collaudo.esito" class="w-full px-3.5 py-2.5 bg-white border border-lightBorder rounded-xl text-xs text-slate-700 focus:border-blue-500 focus:outline-none shadow-sm">
+                        <option value="Da eseguire">Da eseguire</option>
+                        <option value="Approvato">Approvato (Conforme - Pronto)</option>
+                        <option value="Con riserve">Con riserve / Da rilavorare</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">Note / Verifiche Tecniche</label>
+                <textarea x-model="alloggioCorrente.collaudo.noteVerifica" rows="2" class="w-full px-3.5 py-2.5 bg-white border border-lightBorder rounded-xl text-xs text-slate-700 focus:border-blue-500 focus:outline-none shadow-sm" placeholder="Note sulla verifica congiunta..."></textarea>
+            </div>
+
+            <div class="flex justify-between items-center pt-4 border-t border-lightBorder">
+                <span class="text-xs text-slate-500">Salva la scheda per registrare i documenti.</span>
+                <div class="space-x-2">
+                    <button @click="chiudiGestione()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">Annulla</button>
+                    <button @click="salvaGestione()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all">Salva Scheda</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Anteprima foto a schermo intero -->
+    <div x-show="fotoAperta" class="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center p-4" style="display: none;" @click.self="fotoAperta = null">
+        <img :src="fotoAperta ? fotoAperta.url : ''" class="max-w-full max-h-[80vh] object-contain rounded-lg" alt="Foto a schermo intero">
+        <div class="flex gap-3 mt-4">
+            <button @click="scaricaFoto(fotoAperta)" class="px-4 py-2.5 bg-white text-slate-800 text-xs font-bold rounded-xl">⬇ Scarica</button>
+            <button @click="fotoAperta = null" class="px-4 py-2.5 bg-slate-700 text-white text-xs font-bold rounded-xl">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Script Applicativo -->
+    <script>
+        const datiInizialiPrecaricati = [
+  {
+    "id": 1,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "73",
+    "interno": "1",
+    "telefono": "3890189357",
+    "nominativo": "MAIONICA REGINA",
+    "email": "reginamaionica33@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 2,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "73",
+    "interno": "4",
+    "telefono": "3394638085",
+    "nominativo": "CROCE ALBERTO",
+    "email": "albertocroce@alice.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 3,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "73",
+    "interno": "9",
+    "telefono": "3514735700",
+    "nominativo": "OREL ALESSANDRO JOSUE'",
+    "email": "wonkalumpa01@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 4,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "73",
+    "interno": "10",
+    "telefono": "3275389355",
+    "nominativo": "LOREDAN LOREDANA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 5,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "73",
+    "interno": "12",
+    "telefono": "3482770996",
+    "nominativo": "ESPOSITO SERENA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 6,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "1",
+    "telefono": "3333010106",
+    "nominativo": "GIRALDI FABIO",
+    "email": "fabiogiraldi@yahoo.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 7,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "3",
+    "telefono": "3474450577",
+    "nominativo": "PERIN UGO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 8,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "4",
+    "telefono": "3292028563",
+    "nominativo": "DELBELLO ANTONIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 9,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "5",
+    "telefono": "3403380286",
+    "nominativo": "CURSANO LIDIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 10,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "6",
+    "telefono": "3465134555",
+    "nominativo": "BUTTIGNON DEBORA",
+    "email": "deborabuttignon76@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 11,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "9",
+    "telefono": "3804686068-3510095976",
+    "nominativo": "OBERMAIER GIOVANNI",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 12,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "10",
+    "telefono": "040830907",
+    "nominativo": "CAPELLO DARIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 13,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "11",
+    "telefono": "3405915898",
+    "nominativo": "DE IACO FURIO",
+    "email": "fdj55@hotmail.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 14,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "12",
+    "telefono": "040811984",
+    "nominativo": "ROSSI DETTO BALDIN TEODOLINDO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 15,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "13",
+    "telefono": "3347103255",
+    "nominativo": "KARI GENNY",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 16,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "75",
+    "interno": "14",
+    "telefono": "040641433",
+    "nominativo": "GOINA FRANCA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 17,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "5",
+    "telefono": "3939545731",
+    "nominativo": "PAJKIC GORAN",
+    "email": "marinapajkic05@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 18,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "8",
+    "telefono": "040831163",
+    "nominativo": "JEZ SILVANA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 19,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "10",
+    "telefono": "3934180141",
+    "nominativo": "ZDRAVKOVIC DRAGAN",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 20,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "12",
+    "telefono": "3515684268-3703502015",
+    "nominativo": "LAZAR MILAN",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 21,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "22",
+    "telefono": "3801906982",
+    "nominativo": "SACSIDA KETTY",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 22,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "24",
+    "telefono": "3290314657",
+    "nominativo": "PORTAS DANIEL",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 23,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "26",
+    "telefono": "3287820232",
+    "nominativo": "SOFFICI OMAR",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 24,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "28",
+    "telefono": "3408336921",
+    "nominativo": "PARENZAN VERA LUCIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 25,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "32",
+    "telefono": "3515989157",
+    "nominativo": "MATTELINI MIRANDA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 26,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "35",
+    "telefono": "3533810616",
+    "nominativo": "TIMOFTE GEORGIANA ELENA",
+    "email": "georgianatimofte21@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 27,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "40",
+    "telefono": "3281826666",
+    "nominativo": "PIOL FRANCO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 28,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "41",
+    "telefono": "3406612787",
+    "nominativo": "BERNARDINI ROBERTO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 29,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "42",
+    "telefono": "040370900",
+    "nominativo": "KUYULDAR BAYRAM",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 30,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "77",
+    "interno": "45",
+    "telefono": "3280089917-3471881597",
+    "nominativo": "STANILA CRISTINA LENUTA",
+    "email": "kristinakiki385@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 31,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "79",
+    "interno": "1",
+    "telefono": "3391788996",
+    "nominativo": "SCOTTO DI PERROTOLO PATRIZIA",
+    "email": "scottodiperrotolop@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 32,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "79",
+    "interno": "9",
+    "telefono": "3791471722",
+    "nominativo": "ACIMOVIC STEFAN",
+    "email": "stefanacimovic07@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 33,
+    "impresa": "Eurometal",
+    "fase": "Fase 1",
+    "civico": "79",
+    "interno": "12",
+    "telefono": "3203491345",
+    "nominativo": "VECCHIET LORENZO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 34,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "2",
+    "telefono": "3492927134",
+    "nominativo": "DE ROSARIO ADA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 35,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "5",
+    "telefono": "3332957928",
+    "nominativo": "SANTANIELLO ZACCARIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 36,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "7",
+    "telefono": "3489500266",
+    "nominativo": "PECAR SANDRO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 37,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "9",
+    "telefono": "040827725-3490559162",
+    "nominativo": "SARDO MORENO",
+    "email": "moreno.sardo@hotmail.com ",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 38,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "10",
+    "telefono": "3664351732-3516142764-3505220790",
+    "nominativo": "FUMIS GIOIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 39,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "11",
+    "telefono": "3471811080",
+    "nominativo": "CLAUT ELEONORA",
+    "email": "studiolegaleavvferri@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 40,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "12",
+    "telefono": "3392743032",
+    "nominativo": "ZABIC DRASKO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 41,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "15",
+    "telefono": "3883582853",
+    "nominativo": "TONIATI MARISTELLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 42,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "57",
+    "interno": "16",
+    "telefono": "3331322285",
+    "nominativo": "VAPNAR MARINA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 43,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "73",
+    "interno": "13",
+    "telefono": "040831047",
+    "nominativo": "PESCATORI ANNA MARIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 44,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "77",
+    "interno": "46",
+    "telefono": "3398861265",
+    "nominativo": "GHERSINI ELISA",
+    "email": "elisaghersini09@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 45,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "77",
+    "interno": "47",
+    "telefono": "3384807004",
+    "nominativo": "FORTUNA FULVIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 46,
+    "impresa": "Eurometal",
+    "fase": "Fase 2",
+    "civico": "77",
+    "interno": "48",
+    "telefono": "3404578050",
+    "nominativo": "LICCIARDELLO MORENO",
+    "email": "morlicsound1@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 47,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "11",
+    "telefono": "3382781196",
+    "nominativo": "MADBAR SOBUG",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 48,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "12",
+    "telefono": "3895333772",
+    "nominativo": "ATANASOVLJUBINKA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 49,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "14",
+    "telefono": "3294648012",
+    "nominativo": "COSLOVI NELLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 50,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "17",
+    "telefono": "333 85 90 359",
+    "nominativo": "GAUDIELLO LUISA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 51,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "18",
+    "telefono": "3914345656",
+    "nominativo": "CADEL ADRIANO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 52,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "22",
+    "telefono": "3474530081",
+    "nominativo": "LAKOVIC VESNA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 53,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "61",
+    "interno": "23",
+    "telefono": "3384801786",
+    "nominativo": "BENVIN LICIA",
+    "email": "tatiana.poldrugac@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 54,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "3",
+    "telefono": "3316380653",
+    "nominativo": "LAPI MARIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 55,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "5",
+    "telefono": "366 8198498",
+    "nominativo": "FONTANONE VIRGILIO",
+    "email": "virgilio.fontanone@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 56,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "8",
+    "telefono": "3462278072",
+    "nominativo": "VIZZIELLI ELISABETTA",
+    "email": "elisabetta.1975viz@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 57,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "9",
+    "telefono": "3409716353",
+    "nominativo": "FOLCHINI GIULIANO",
+    "email": "giuliano.fogi@alice.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 58,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "10",
+    "telefono": "3295654921",
+    "nominativo": "FIORIN GRAZIELLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 59,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "11",
+    "telefono": "3402798348",
+    "nominativo": "MAURO MANUELA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 60,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "14",
+    "telefono": "3470392586",
+    "nominativo": "COLAUTTI NIVEA",
+    "email": "iatolo54@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 61,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "15",
+    "telefono": "3482420775 calabria",
+    "nominativo": "COMUNE DI TRIESTE",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 62,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "16",
+    "telefono": "3276976878",
+    "nominativo": "NISHORI FANDAJ LEONORA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 63,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "17",
+    "telefono": "3461228398",
+    "nominativo": "LANOTTE MAURO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 64,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "18",
+    "telefono": "3494374600",
+    "nominativo": "SCHIAVOLIN LUCIANO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 65,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "20",
+    "telefono": "3515687903 3421868148 cognato",
+    "nominativo": "MONTELLA ANNA",
+    "email": "nicola.spinoso65@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 66,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "21",
+    "telefono": "3394201864",
+    "nominativo": "MATELICH ALBINA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 67,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "22",
+    "telefono": "3662673137 3703093613",
+    "nominativo": "TUCCIO ROBERTO",
+    "email": "robertotuccio@yahoo.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 68,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "23",
+    "telefono": "0402031172",
+    "nominativo": "TURCO DIMITRIJ",
+    "email": "di.turco@tiscali.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 69,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "24",
+    "telefono": "",
+    "nominativo": "SFITTO",
+    "email": "CONSEGNA CHIAVE 27/07/2026",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 70,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "27",
+    "telefono": "040830929",
+    "nominativo": "SCIUTTERI ANTONINO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 71,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "28",
+    "telefono": "3476826159",
+    "nominativo": "SICILIANO LIVIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 72,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "29",
+    "telefono": "3493110408",
+    "nominativo": "ABATANGELO GIANFRANCO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 73,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "30",
+    "telefono": "3208034090",
+    "nominativo": "TURCU ECATERINA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 74,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "32",
+    "telefono": "3205735833 3200792152",
+    "nominativo": "MARUSIC DUSAN",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 75,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "33",
+    "telefono": "3381234655",
+    "nominativo": "SFERZA TIZIANA",
+    "email": "tiziana.sferza@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 76,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "34",
+    "telefono": "040383052",
+    "nominativo": "DAMATO SABINO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 77,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "35",
+    "telefono": "3394898642",
+    "nominativo": "LANOTTE SABRINA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 78,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "37",
+    "telefono": "3481452772",
+    "nominativo": "MARCHESI MARIAGRAZIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 79,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "40",
+    "telefono": "3898495040",
+    "nominativo": "MEZEI IOANA EMILIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 80,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "41",
+    "telefono": "3421443023",
+    "nominativo": "GRISONIC MARZIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 81,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "67",
+    "interno": "42",
+    "telefono": "ADS 3519063920 (s.sociali PETRINCO SILVIA)",
+    "nominativo": "PODPECAN IRMA",
+    "email": "francy.bertolo@libero.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 82,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "59",
+    "interno": "30",
+    "telefono": "3457797678",
+    "nominativo": "FRANCA DENIS",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 83,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "59",
+    "interno": "32",
+    "telefono": "040812160 3405943571",
+    "nominativo": "TIKUILIN RICCARDO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 84,
+    "impresa": "Manganiello",
+    "fase": "Fase 1",
+    "civico": "59",
+    "interno": "33",
+    "telefono": "040814808 3382580097",
+    "nominativo": "LEPRE PIETRO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 85,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "1",
+    "telefono": "",
+    "nominativo": "BALL FEDERICA",
+    "email": "demarco.fulvio@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 86,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "2",
+    "telefono": "040831069 3389795203 (sorella)",
+    "nominativo": "SPIRITICCHIO MICHELE",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 87,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "8",
+    "telefono": "3336580833 MARCO SAVI ",
+    "nominativo": "TONIAL IRMA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 88,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "9",
+    "telefono": "3898966642",
+    "nominativo": "WESTPFAHL CLELIA",
+    "email": "westclelia@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 89,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "10",
+    "telefono": "3348782579",
+    "nominativo": "DRAGICEVIC DRAGICA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 90,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "11",
+    "telefono": "3470466600 3387850633 figlia",
+    "nominativo": "BRAICO RITA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 91,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "17",
+    "telefono": "3331176350",
+    "nominativo": "SALBE GIULIANO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 92,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "18",
+    "telefono": "3200896421",
+    "nominativo": "FERLATTI SERENA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 93,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "19",
+    "telefono": "3407667320",
+    "nominativo": "PREGARZ KATTY",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 94,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "20",
+    "telefono": "3346677590",
+    "nominativo": "DI NUZZO BARTOLOMEO",
+    "email": "barto56@alice.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 95,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "22",
+    "telefono": "040369137",
+    "nominativo": "VALENTI PAOLO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 96,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "23",
+    "telefono": "3485955154",
+    "nominativo": "VESELIJEVIC SAFET",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 97,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "24",
+    "telefono": "040831070",
+    "nominativo": "GIURESSI GIULIANO",
+    "email": "giuressigiuliano@outlook.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 98,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "26",
+    "telefono": "3384812976",
+    "nominativo": "PODZINKOVA DIEGO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 99,
+    "impresa": "Manganiello",
+    "fase": "Fase 2",
+    "civico": "59",
+    "interno": "27",
+    "telefono": "3388312155",
+    "nominativo": "FORNASARO FURIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 100,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "55",
+    "interno": "3",
+    "telefono": "3466501214",
+    "nominativo": "KAYLIALP IHSAN",
+    "email": "ihsantoprakkent@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 101,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "55",
+    "interno": "5",
+    "telefono": "3278617956",
+    "nominativo": "ASUGI",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 102,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "55",
+    "interno": "7",
+    "telefono": "3935989366 3247882452-Lunardis S(figlio)",
+    "nominativo": "LEONE CLARA",
+    "email": "stefanotrieste2021@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 103,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "63",
+    "interno": "2",
+    "telefono": "ADS AVV.SIBELJA-040 7600759",
+    "nominativo": "LORENZETTI LUCIANA",
+    "email": "info@sibelja.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 104,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "63",
+    "interno": "4",
+    "telefono": "3482792570",
+    "nominativo": "WOLLRAP ROBERTO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 105,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "65",
+    "interno": "1",
+    "telefono": "3291285297",
+    "nominativo": "MILCENICH WALTER",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 106,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "65",
+    "interno": "7",
+    "telefono": "3493218106",
+    "nominativo": "MAGANUCO SALVATORE",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 107,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "65",
+    "interno": "8",
+    "telefono": "3880612516",
+    "nominativo": "DURO ZAMIRA",
+    "email": "kelzanduro2000@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 108,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "65",
+    "interno": "10",
+    "telefono": "3884616561",
+    "nominativo": "ZARIC SLADANA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 109,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "65",
+    "interno": "16",
+    "telefono": "3496153266-040830947",
+    "nominativo": "AVERSA GUIDO",
+    "email": "aversaguido.52@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 110,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "1",
+    "telefono": "3338738093",
+    "nominativo": "MATOVIC MARTIN",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 111,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "4",
+    "telefono": "333 3841271-3913427362",
+    "nominativo": "MURILLO ALVAREZ YANDRA MELISSA",
+    "email": "murilloalvarezyandramelissa@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 112,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "5",
+    "telefono": "3278617956",
+    "nominativo": "ASUGI",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 113,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "6",
+    "telefono": "3519490295-3203298630",
+    "nominativo": "MARTINELLI MARCO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 114,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "7",
+    "telefono": "3896481666",
+    "nominativo": "PECAR GIULIANA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 115,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "8",
+    "telefono": "FIGLIA-3282691849",
+    "nominativo": "KRAIJEVIC GRAZIELLA",
+    "email": "otto.raga@yahoo.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 116,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "9",
+    "telefono": "040 810171",
+    "nominativo": "BRAZZATTI ELEONORA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 117,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "10",
+    "telefono": "3383345174",
+    "nominativo": "NIBBIO VITTORIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 118,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "12",
+    "telefono": "3462410299",
+    "nominativo": "TERMINI MIRIAM",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 119,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "13",
+    "telefono": "3518908768",
+    "nominativo": "MOTTA DANIELA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 120,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "15",
+    "telefono": "3470196211 figlio Panarello-040826113",
+    "nominativo": "DELLA GATTA ROSA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 121,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "16",
+    "telefono": "3711619831",
+    "nominativo": "ZANON SILVANO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 122,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "17",
+    "telefono": "040 827807-3394281879",
+    "nominativo": "MORES MIRELLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 123,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "18",
+    "telefono": "3403826024-040831016",
+    "nominativo": "LOJ ROBERTO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 124,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "19",
+    "telefono": "3482380078",
+    "nominativo": "MASCI ALVARO",
+    "email": "fabrymasci75@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 125,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "20",
+    "telefono": "3487992753",
+    "nominativo": "LIVA RENATA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 126,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "21",
+    "telefono": "3388009796 FIGLIO",
+    "nominativo": "LONGO ROSALBA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 127,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "22",
+    "telefono": "3473465217",
+    "nominativo": "AMBROSIO NADIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 128,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "69",
+    "interno": "24",
+    "telefono": "3442995615",
+    "nominativo": "FLEGO CARLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 129,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "1",
+    "telefono": "3737066707",
+    "nominativo": "SENNI GIORGIO",
+    "email": "giorgio.senni@vodafone.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 130,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "2",
+    "telefono": "3382777477",
+    "nominativo": "BERGAMASCHI PAOLO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 131,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "5",
+    "telefono": "3923910029",
+    "nominativo": "BOZINOVIC JAGODA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 132,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "7",
+    "telefono": "346-6055773",
+    "nominativo": "CALLEGARIS FRANCESCA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 133,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "8",
+    "telefono": "040 384203 (?)",
+    "nominativo": "POZZETTO FABIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 134,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "9",
+    "telefono": "3474146119-3470652744",
+    "nominativo": "MILOSEVIC RADISA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 135,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "10",
+    "telefono": "3471176612",
+    "nominativo": "SIMEONE VALENTINA",
+    "email": "valesimeone@hotmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 136,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "11",
+    "telefono": "3491867805",
+    "nominativo": "LA DIANA FRANCESCO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 137,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "12",
+    "telefono": "3394882273",
+    "nominativo": "LA SPISA CONCETTA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 138,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "13",
+    "telefono": "3472568741",
+    "nominativo": "KOBAL CONCETTA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 139,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "14",
+    "telefono": "3282337097",
+    "nominativo": "SIEGA MARIA GRAZIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 140,
+    "impresa": "Saggese",
+    "fase": "Fase 1",
+    "civico": "71",
+    "interno": "16",
+    "telefono": "040 811258",
+    "nominativo": "MASSIMI GIOVANNI COSIMO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 141,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "61",
+    "interno": "4",
+    "telefono": "3471823290",
+    "nominativo": "DE RADIO SABRINA",
+    "email": "michellemabel@libero.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 142,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "61",
+    "interno": "5",
+    "telefono": "040 8320008",
+    "nominativo": "COLOMBO BRUNO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 143,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "61",
+    "interno": "7",
+    "telefono": "040 828355",
+    "nominativo": "FORZALE ANTONIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 144,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "61",
+    "interno": "9",
+    "telefono": "3401504561",
+    "nominativo": "REBULA ROBERTO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 145,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "61",
+    "interno": "10",
+    "telefono": "3407506823-040825547",
+    "nominativo": "CODIGLIA ATTILIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 146,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "5",
+    "telefono": "no tel/cell",
+    "nominativo": "KRYEZIU LIRIE",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 147,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "6",
+    "telefono": "3477767146",
+    "nominativo": "STEVIC MIROSLAV",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 148,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "7",
+    "telefono": "040 830962",
+    "nominativo": "FAIT SILVIO",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 149,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "8",
+    "telefono": "040 830949",
+    "nominativo": "CAPELLARI BURANELLO LILIANA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 150,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "9",
+    "telefono": "3494541180",
+    "nominativo": "PORCU MARIA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 151,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "10",
+    "telefono": "3487994830-3403087234",
+    "nominativo": "SABA SERGIO",
+    "email": "sergiosaba1966@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 152,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "12",
+    "telefono": "3476357603",
+    "nominativo": "CRECICH FIORELLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 153,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "13",
+    "telefono": "3394012643-0408333708 ",
+    "nominativo": "NEMAC MARIA",
+    "email": "davide.kappa@libero.it",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 154,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "14",
+    "telefono": "3882303268",
+    "nominativo": "VINDIGNI CRISTINA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 155,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "15",
+    "telefono": "3475028260",
+    "nominativo": "PRIORI SABRINA",
+    "email": "priorisabrina66@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 156,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "16",
+    "telefono": "3394638419",
+    "nominativo": "PATRUNO MARINA",
+    "email": "marinapatruno@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 157,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "17",
+    "telefono": "3299247697-3358452164",
+    "nominativo": "INGLESE GABRIELLA",
+    "email": "",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  },
+  {
+    "id": 158,
+    "impresa": "Saggese",
+    "fase": "Fase 2",
+    "civico": "63",
+    "interno": "18",
+    "telefono": "3297165912-3517683285",
+    "nominativo": "RANKOVIC SUZANA",
+    "email": "suzarankovic87@gmail.com",
+    "stato": "In produzione",
+    "note": "",
+    "collaudo": { "data": "", "tecnico": "", "esito": "Da eseguire", "noteVerifica": "", "fileWord": "", "foto": [] }
+  }
+];
+
+        // ===================== FOTO: IndexedDB + compressione =====================
+        const FOTO_MAX_LATO = 1200;     // px: lato massimo (larghezza E altezza <= 1200)
+        const FOTO_QUALITA  = 0.7;      // qualita' JPEG (0-1)
+
+        const FotoDB = {
+            _db: null,
+            apri() {
+                if (this._db) return Promise.resolve(this._db);
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('valmaura_foto_db', 1);
+                    req.onupgradeneeded = () => {
+                        const store = req.result.createObjectStore('foto', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('alloggio', 'alloggioKey', { unique: false });
+                    };
+                    req.onsuccess = () => { this._db = req.result; resolve(this._db); };
+                    req.onerror = () => reject(req.error);
+                });
+            },
+            async _tx(modo, fn) {
+                const db = await this.apri();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction('foto', modo);
+                    const req = fn(tx.objectStore('foto'));
+                    tx.oncomplete = () => resolve(req ? req.result : undefined);
+                    tx.onerror = () => reject(tx.error);
+                    tx.onabort = () => reject(tx.error);
+                });
+            },
+            // Le fotografie sono conservate esclusivamente in IndexedDB su questo dispositivo.
+            aggiungi(record) {
+                return this._tx('readwrite', st => st.add(record));
+            },
+            aggiorna(record) {
+                return this._tx('readwrite', st => st.put(record));
+            },
+            elenca(alloggioKey) {
+                return this._tx('readonly', st => st.index('alloggio').getAll(alloggioKey));
+            },
+            tutte() {
+                return this._tx('readonly', st => st.getAll());
+            },
+            elimina(id) {
+                return this._tx('readwrite', st => st.delete(id));
+            },
+            // Sostituisce in un'unica transazione tutte le foto durante il ripristino di un backup.
+            sostituisci(records) {
+                return this.apri().then(db => new Promise((resolve, reject) => {
+                    const tx = db.transaction('foto', 'readwrite');
+                    const st = tx.objectStore('foto');
+                    st.clear();
+                    for (const record of records) st.add(record);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                    tx.onabort = () => reject(tx.error || new Error('Ripristino foto annullato'));
+                }));
+            }
+        };
+
+        function nuovoUid() {
+            if (crypto.randomUUID) return crypto.randomUUID();
+            return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+        }
+
+        // ===================== FOTO SOLO LOCALI =====================
+        // Le foto sono conservate in IndexedDB su questo dispositivo. Non viene effettuata
+        // alcuna chiamata a Netlify o ad altri servizi cloud.
+        // Ridimensiona (lato max 1200px) e comprime in JPEG. Corregge anche l'orientamento EXIF.
+        async function comprimiImmagine(file) {
+            let bmp, w, h;
+            try {
+                bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+                w = bmp.width; h = bmp.height;
+            } catch (e) {
+                // Fallback per browser senza createImageBitmap con opzioni
+                bmp = await new Promise((resolve, reject) => {
+                    const url = URL.createObjectURL(file);
+                    const img = new Image();
+                    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+                    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Immagine non leggibile')); };
+                    img.src = url;
+                });
+                w = bmp.naturalWidth; h = bmp.naturalHeight;
+            }
+            const scala = Math.min(1, FOTO_MAX_LATO / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * scala));
+            const ch = Math.max(1, Math.round(h * scala));
+            const canvas = document.createElement('canvas');
+            canvas.width = cw; canvas.height = ch;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';             // sfondo bianco per eventuali PNG trasparenti
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.drawImage(bmp, 0, 0, cw, ch);
+            if (bmp.close) bmp.close();
+            const blob = await new Promise((resolve, reject) =>
+                canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compressione fallita')), 'image/jpeg', FOTO_QUALITA));
+            canvas.width = canvas.height = 0;      // libera memoria (importante su iOS)
+            return blob;
+        }
+
+        // Chiede al browser di non cancellare i dati in caso di poco spazio
+        if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(() => {}); }
+
+        // Registra il service worker (funzionamento offline) - solo se servito via https/localhost
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {}));
+        }
+
+        function valmauraApp() {
+            return {
+                statiLavorazione: ['In produzione', 'Posa in corso', 'Completato'],
+                ditteDisponibili: ['Eurometal', 'Manganiello', 'Saggese'],
+                
+                alloggi: [],
+                filtroCivico: '',
+                filtroDitta: '',
+                filtroFase: '',
+                filtroStato: '',
+                filtroEsito: '',
+                ricercaTesto: '',
+                
+                colonnaOrdinamento: 'civico',
+                direzioneOrdinamento: 'asc',
+
+                modaleGestioneAperto: false,
+                alloggioCorrente: { collaudo: { foto: [] } },
+                fotoAlloggio: [],
+                fotoAperta: null,
+                fotoInElaborazione: 0,
+                fotoErrore: '',
+
+                init() {
+                    const salvati = localStorage.getItem('valmaura_serramenti_data_light_v2');
+                    if (salvati) {
+                        try {
+                            this.alloggi = JSON.parse(salvati);
+                        } catch(e) {
+                            this.alloggi = datiInizialiPrecaricati;
+                        }
+                    } else {
+                        this.alloggi = datiInizialiPrecaricati;
+                        this.salvaDati();
+                    }
+                    this.sincronizzaFoto();
+                },
+
+                // Aggiorna soltanto i riferimenti locali: nessuna sincronizzazione online.
+                async sincronizzaFoto() {
+                    try {
+                        const tutte = await FotoDB.tutte();
+                        const perAlloggio = {};
+                        for (const r of tutte) {
+                            if (r.stato === 'da_eliminare') { await FotoDB.elimina(r.id); continue; }
+                            (perAlloggio[r.alloggioKey] ||= []).push(r);
+                        }
+                        let modificato = false;
+                        this.alloggi.forEach(a => {
+                            const locali = perAlloggio[this.chiaveAlloggio(a)] || [];
+                            const ids = locali.map(r => r.uid).filter(Boolean);
+                            if (!a.collaudo) a.collaudo = { data: '', tecnico: '', esito: 'Da eseguire', noteVerifica: '', fileWord: '', foto: [] };
+                            if (JSON.stringify(a.collaudo.foto || []) !== JSON.stringify(ids)) { a.collaudo.foto = ids; modificato = true; }
+                        });
+                        if (modificato) this.salvaDati();
+                        if (this.modaleGestioneAperto) await this._ricaricaFotoLocali(this.chiaveAlloggio(this.alloggioCorrente));
+                    } catch (e) {
+                        this.fotoErrore = 'Impossibile leggere le fotografie salvate sul telefono.';
+                    }
+                },
+
+                get civiciFiltratiPerDitta() {
+                    let subset = this.alloggi;
+                    if (this.filtroDitta !== '') {
+                        subset = this.alloggi.filter(a => a.impresa.toLowerCase().includes(this.filtroDitta.toLowerCase()));
+                    }
+                    let civici = [...new Set(subset.map(a => a.civico))];
+                    return civici.sort((a, b) => parseInt(a) - parseInt(b));
+                },
+
+                ordina(colonna) {
+                    if (this.colonnaOrdinamento === colonna) {
+                        this.direzioneOrdinamento = this.direzioneOrdinamento === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        this.colonnaOrdinamento = colonna;
+                        this.direzioneOrdinamento = 'asc';
+                    }
+                },
+
+                get alloggiFiltrati() {
+                    let filtrati = this.alloggi.filter(a => {
+                        let matchCivico = this.filtroCivico === '' || a.civico == this.filtroCivico;
+                        let matchDitta = this.filtroDitta === '' || a.impresa.toLowerCase().includes(this.filtroDitta.toLowerCase());
+                        let matchFase = this.filtroFase === '' || a.fase === this.filtroFase;
+                        let matchStato = this.filtroStato === '' || a.stato === this.filtroStato;
+                        let matchEsito = this.filtroEsito === '' || (a.collaudo && a.collaudo.esito === this.filtroEsito);
+                        
+                        let search = this.ricercaTesto.toLowerCase();
+                        let matchTesto = search === '' || 
+                            a.interno.toLowerCase().includes(search) || 
+                            a.civico.toString().includes(search) ||
+                            a.nominativo.toLowerCase().includes(search) ||
+                            a.telefono.toLowerCase().includes(search) ||
+                            a.note.toLowerCase().includes(search);
+                        
+                        return matchCivico && matchDitta && matchFase && matchStato && matchEsito && matchTesto;
+                    });
+
+                    filtrati.sort((a, b) => {
+                        let valA = this.colonnaOrdinamento === 'esito' ? this.esitoCollaudo(a) : a[this.colonnaOrdinamento];
+                        let valB = this.colonnaOrdinamento === 'esito' ? this.esitoCollaudo(b) : b[this.colonnaOrdinamento];
+
+                        if (this.colonnaOrdinamento === 'civico' || this.colonnaOrdinamento === 'interno') {
+                            valA = parseInt(valA) || 0;
+                            valB = parseInt(valB) || 0;
+                        } else {
+                            valA = (valA || '').toString().toLowerCase();
+                            valB = (valB || '').toString().toLowerCase();
+                        }
+
+                        if (valA < valB) return this.direzioneOrdinamento === 'asc' ? -1 : 1;
+                        if (valA > valB) return this.direzioneOrdinamento === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+
+                    return filtrati;
+                },
+
+                get statisticheStati() {
+                    let stats = {};
+                    this.statiLavorazione.forEach(s => {
+                        stats[s] = this.alloggi.filter(a => a.stato === s).length;
+                    });
+                    return stats;
+                },
+
+                get percentualeCompletamento() {
+                    let lista = this.alloggiFiltrati;
+                    if (lista.length === 0) return 0;
+                    let completati = lista.filter(a => a.stato === 'Completato').length;
+                    return Math.round((completati / lista.length) * 100);
+                },
+
+                salvaDati() {
+                    localStorage.setItem('valmaura_serramenti_data_light_v2', JSON.stringify(this.alloggi));
+                },
+
+                esitoCollaudo(a) {
+                    return (a.collaudo && a.collaudo.esito) || 'Da eseguire';
+                },
+
+                etichettaEsito(esito) {
+                    return { 'Da eseguire': '⏳ Da eseguire', 'Approvato': '✅ Approvato', 'Con riserve': '⚠️ Con riserve' }[esito] || esito;
+                },
+
+                // Colore riga: prima l'esito del collaudo (scheda alloggio), poi lo stato lavori
+                classeRiga(a) {
+                    const esito = this.esitoCollaudo(a);
+                    const documentato = a.collaudo && a.collaudo.fileWord && (a.collaudo.foto || []).some(u => !String(u).startsWith('scheda-'));   // le foto della scheda non contano come foto di cantiere
+                    if (esito === 'Con riserve') return 'bg-rose-200/80 hover:bg-rose-200 border-l-rose-600';
+                    if (esito === 'Approvato') return documentato
+                        ? 'bg-indigo-200/80 hover:bg-indigo-200 border-l-indigo-600'
+                        : 'bg-teal-200/80 hover:bg-teal-200 border-l-teal-600';
+                    if (a.stato === 'Completato') return 'bg-emerald-200/80 hover:bg-emerald-200 border-l-emerald-600';
+                    if (a.stato === 'Posa in corso') return 'bg-sky-200/80 hover:bg-sky-200 border-l-sky-600';
+                    return 'bg-violet-200/70 hover:bg-violet-200 border-l-violet-600';
+                },
+
+                apriGestione(alloggio) {
+                    this.alloggioCorrente = JSON.parse(JSON.stringify(alloggio));
+                    if(!this.alloggioCorrente.collaudo) {
+                        this.alloggioCorrente.collaudo = { data: '', tecnico: '', esito: 'Da eseguire', noteVerifica: '', fileWord: '', foto: [] };
+                    }
+                    if(!this.alloggioCorrente.collaudo.foto) {
+                        this.alloggioCorrente.collaudo.foto = [];
+                    }
+                    this.modaleGestioneAperto = true;
+                    this.caricaFotoAlloggio();
+                },
+
+                chiaveAlloggio(a) { return a.civico + '-' + a.interno; },
+
+                _rilasciaUrlFoto() {
+                    this.fotoAlloggio.forEach(f => URL.revokeObjectURL(f.url));
+                    this.fotoAlloggio = [];
+                },
+
+                async caricaFotoAlloggio() {
+                    this._rilasciaUrlFoto();
+                    this.fotoErrore = '';
+                    const chiave = this.chiaveAlloggio(this.alloggioCorrente);
+                    try {
+                        await this._ricaricaFotoLocali(chiave);
+                        await this._sincronizzaContatoreFoto(chiave);
+                    } catch (e) {
+                        this.fotoErrore = 'Impossibile leggere le foto salvate (' + (e && e.message ? e.message : e) + ').';
+                    }
+                },
+
+                // Aggiorna le anteprime della scheda aperta senza ricreare quelle gia' mostrate
+                async _ricaricaFotoLocali(chiave) {
+                    const righe = (await FotoDB.elenca(chiave)).filter(r => r.stato !== 'da_eliminare');
+                    if (!this.modaleGestioneAperto || this.chiaveAlloggio(this.alloggioCorrente) !== chiave) return; // scheda cambiata nel frattempo
+                    righe.sort((a, b) => a.data - b.data);
+                    const esistenti = new Map(this.fotoAlloggio.map(f => [f.id, f]));
+                    const nuove = righe.map(r => {
+                        const f = esistenti.get(r.id);
+                        if (f) { esistenti.delete(r.id); f.sincronizzata = true; return f; }
+                        return { id: r.id, nome: r.nome, size: r.size, url: URL.createObjectURL(r.blob), blob: r.blob, sincronizzata: true };
+                    });
+                    esistenti.forEach(f => {
+                        URL.revokeObjectURL(f.url);
+                        if (this.fotoAperta && this.fotoAperta.id === f.id) this.fotoAperta = null;
+                    });
+                    this.fotoAlloggio = nuove;
+                },
+
+                // Tiene collaudo.foto allineato alle foto realmente presenti nel DB (serve alla colorazione delle righe)
+                async _sincronizzaContatoreFoto(chiave) {
+                    try {
+                        const tutte = await FotoDB.tutte();
+                        const ids = tutte.filter(r => r.alloggioKey === chiave).map(r => r.uid).filter(Boolean);
+                        const live = this.alloggi.find(a => this.chiaveAlloggio(a) === chiave);
+                        if (live) {
+                            if (!live.collaudo) live.collaudo = { data: '', tecnico: '', esito: 'Da eseguire', noteVerifica: '', fileWord: '', foto: [] };
+                            live.collaudo.foto = ids.slice();
+                            this.salvaDati();
+                        }
+                        if (this.modaleGestioneAperto && this.chiaveAlloggio(this.alloggioCorrente) === chiave) {
+                            this.alloggioCorrente.collaudo.foto = ids.slice();
+                        }
+                    } catch (e) { /* non bloccante */ }
+                },
+
+                async aggiungiFoto(event) {
+                    const input = event.target;
+                    const files = Array.from(input.files || []);
+                    input.value = '';   // permette di riscattare/riselezionare subito
+                    if (!files.length) return;
+                    this.fotoErrore = '';
+                    const chiave = this.chiaveAlloggio(this.alloggioCorrente);
+                    this.fotoInElaborazione += files.length;
+                    for (const file of files) {
+                        try {
+                            const blob = await comprimiImmagine(file);
+                            const nome = 'foto_' + chiave + '_' + new Date().toISOString().replace(/[:.]/g, '-') + '.jpg';
+                            const id = await FotoDB.aggiungi({ uid: nuovoUid(), alloggioKey: chiave, blob, nome, size: blob.size, data: Date.now(), stato: 'locale' });
+                            if (this.chiaveAlloggio(this.alloggioCorrente) === chiave) {
+                                this.fotoAlloggio.push({ id, nome, size: blob.size, url: URL.createObjectURL(blob), blob, sincronizzata: true });
+                            }
+                        } catch (e) {
+                            this.fotoErrore = 'Errore nel salvataggio di una foto: ' + (e && e.message ? e.message : e);
+                        } finally {
+                            this.fotoInElaborazione--;
+                        }
+                    }
+                    await this._sincronizzaContatoreFoto(chiave);
+                    this._aggiornaStatoFotoLocale(chiave);
+                },
+
+                // Aggiorna le anteprime dopo un salvataggio locale.
+                async _aggiornaStatoFotoLocale(chiave) {
+                    await this._ricaricaFotoLocali(chiave);
+                    await this._sincronizzaContatoreFoto(chiave);
+                },
+
+                async eliminaFoto(f) {
+                    if (!confirm('Eliminare definitivamente questa foto da questo telefono?')) return;
+                    try {
+                        const chiave = this.chiaveAlloggio(this.alloggioCorrente);
+                        await FotoDB.elimina(f.id);
+                        URL.revokeObjectURL(f.url);
+                        this.fotoAlloggio = this.fotoAlloggio.filter(x => x.id !== f.id);
+                        if (this.fotoAperta && this.fotoAperta.id === f.id) this.fotoAperta = null;
+                        await this._sincronizzaContatoreFoto(chiave);
+                    } catch (e) {
+                        this.fotoErrore = 'Impossibile eliminare la foto.';
+                    }
+                },
+
+                scaricaFoto(f) {
+                    if (!f) return;
+                    const a = document.createElement('a');
+                    a.href = f.url; a.download = f.nome;
+                    document.body.appendChild(a); a.click(); a.remove();
+                },
+
+                caricaFileWord(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    this.alloggioCorrente.collaudo.fileWord = file.name;
+                },
+
+                salvaGestione() {
+                    const index = this.alloggi.findIndex(a => a.id === this.alloggioCorrente.id);
+                    if (index !== -1) {
+                        if (this.alloggioCorrente.collaudo.esito === 'Approvato') {
+                            this.alloggioCorrente.stato = 'Completato';
+                        }
+                        this.alloggi[index] = JSON.parse(JSON.stringify(this.alloggioCorrente));
+                        this.salvaDati();
+                    }
+                    this.chiudiGestione();
+                },
+
+                chiudiGestione() {
+                    this.modaleGestioneAperto = false;
+                    this.fotoAperta = null;
+                    this._rilasciaUrlFoto();
+                },
+
+                esportaJson() {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.alloggi, null, 2));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", "sal_valmaura_light_backup.json");
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                },
+
+                importaJson(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            this.alloggi = JSON.parse(e.target.result);
+                            this.salvaDati();
+                            alert("Backup importato con successo!");
+                        } catch (err) {
+                            alert("Errore durante l'importazione del file JSON.");
+                        }
+                    };
+                    reader.readAsText(file);
+                },
+
+                excelOccupato: false,
+
+                esportaExcel() {
+                    try {
+                        const righe = [
+                            ['Elenco alloggi Valmaura'],
+                            ['Modifica i dati dalla riga 4. Mantieni le sette colonne e la riga delle intestazioni.'],
+                            ['Impresa', 'Fase', 'Civico', 'Interno', 'Telefono', 'Nominativo', 'Email'],
+                            ...this.alloggi.map(a => ['impresa', 'fase', 'civico', 'interno', 'telefono', 'nominativo', 'email'].map(k => String(a[k] ?? '')))
+                        ];
+                        const foglio = XLSX.utils.aoa_to_sheet(righe);
+                        foglio['!cols'] = [22, 16, 18, 14, 22, 32, 36].map(wch => ({ wch }));
+                        const libro = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(libro, foglio, 'Elenco alloggi');
+                        XLSX.writeFile(libro, 'elenco_valmaura.xlsx');
+                    } catch (e) {
+                        alert('Impossibile scaricare l’Excel. Verifica che la libreria Excel sia disponibile e riprova.');
+                    }
+                },
+
+                importaExcel(event) {
+                    const file = event.target.files[0];
+                    if (!file || this.excelOccupato) return;
+                    this.excelOccupato = true;
+                    const reader = new FileReader();
+                    const termina = () => { this.excelOccupato = false; event.target.value = ''; };
+                    reader.onerror = () => { alert('Impossibile leggere il file selezionato.'); termina(); };
+                    reader.onload = async (e) => {
+                        try {
+                            const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                            const nuovi = [];
+                            const campi = ['impresa', 'fase', 'civico', 'interno', 'telefono', 'nominativo', 'email'];
+                            for (const nome of workbook.SheetNames) {
+                                const righe = XLSX.utils.sheet_to_json(workbook.Sheets[nome], { header: 1, defval: '', raw: false });
+                                for (let i = 3; i < righe.length; i++) {
+                                    const riga = righe[i];
+                                    if (riga.every(v => !String(v).trim())) continue;
+                                    if (!String(riga[2] ?? '').trim() || !String(riga[3] ?? '').trim()) {
+                                        throw new Error(`Foglio "${nome}", riga ${i + 1}: civico e interno sono obbligatori.`);
+                                    }
+                                    const a = Object.fromEntries(campi.map((k, j) => [k, String(riga[j] ?? '').trim()]));
+                                    a.impresa ||= nome;
+                                    a.fase ||= 'Fase 1';
+                                    a.civico = a.civico.replace(/^.*VALMAURA\s*/i, '').trim();
+                                    nuovi.push({ ...a, stato: 'In produzione', note: '', collaudo: { data: '', tecnico: '', esito: 'Da eseguire', noteVerifica: '', fileWord: '', foto: [] } });
+                                }
+                            }
+                            if (!nuovi.length) throw new Error('Nessun alloggio trovato. Inserisci i dati dalla quarta riga, nel formato del file scaricato.');
+                            if (!confirm(`Caricare ${nuovi.length} alloggi? L’elenco attuale su questo telefono verrà sostituito e stati, note e collaudi verranno azzerati.`)) return;
+                            this.alloggi = nuovi;
+                            this.salvaDati();
+                            alert(`Elenco aggiornato su questo telefono: ${nuovi.length} alloggi. Ricorda di creare un nuovo ZIP completo per conservare le modifiche.`);
+                        } catch (err) {
+                            alert(err.message || 'Errore durante il caricamento Excel.');
+                        } finally { termina(); }
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            }
+        }
+    </script>
+    <script src="export-zip.js"></script>
+    <script src="scheda-foto.js"></script>
+</body>
+</html>
